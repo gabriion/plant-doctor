@@ -24,7 +24,7 @@ class GeminiAnalyzer(
 
     companion object {
         private const val API_URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
         private val PROMPT = """
             You are an expert plant pathologist and botanist with decades of experience diagnosing 
