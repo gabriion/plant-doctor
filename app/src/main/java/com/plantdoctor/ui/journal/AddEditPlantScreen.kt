@@ -190,10 +190,10 @@ fun AddEditPlantScreen(
                     val plant = PlantEntity(
                         id = plantToEdit?.id ?: 0,
                         name = name.trim(),
-                        species = species.trim().ifBlank { null },
-                        location = location.trim().ifBlank { null },
-                        photoUri = photoUri,
-                        notes = notes.trim().ifBlank { null }
+                        species = species.trim(),
+                        location = location.trim(),
+                        photoUri = photoUri.orEmpty(),
+                        notes = notes.trim()
                     )
 
                     if (isEditing) {

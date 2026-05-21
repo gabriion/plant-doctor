@@ -3,7 +3,6 @@ package com.plantdoctor.di
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.google.gson.Gson
 import com.plantdoctor.data.remote.GeminiAnalyzer
 import com.plantdoctor.data.remote.OpenAiAnalyzer
 import com.plantdoctor.data.remote.PlantAnalyzer
@@ -29,8 +28,7 @@ object AnalyzerModule {
     @Singleton
     fun providePlantAnalyzer(
         @ApplicationContext context: Context,
-        okHttpClient: OkHttpClient,
-        gson: Gson
+        okHttpClient: OkHttpClient
     ): PlantAnalyzer {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -49,10 +47,7 @@ object AnalyzerModule {
 
         if (apiKey.isNullOrBlank()) {
             return object : PlantAnalyzer {
-                override suspend fun analyze(
-                    imageBytes: ByteArray,
-                    context: Context
-                ): com.plantdoctor.domain.model.DiagnosisResult {
+                override suspend fun analyze(imageBytes: ByteArray): com.plantdoctor.data.remote.model.PlantDiagnosis {
                     throw IllegalStateException(
                         "No API key configured. Please go to Settings and enter your API key to analyze plants."
                     )
@@ -61,8 +56,8 @@ object AnalyzerModule {
         }
 
         return when (provider) {
-            PROVIDER_OPENAI -> OpenAiAnalyzer(okHttpClient, gson, apiKey)
-            else -> GeminiAnalyzer(okHttpClient, gson, apiKey)
+            PROVIDER_OPENAI -> OpenAiAnalyzer(apiKey, okHttpClient)
+            else -> GeminiAnalyzer(apiKey, okHttpClient)
         }
     }
 }
