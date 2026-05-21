@@ -32,7 +32,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -278,7 +280,7 @@ private fun CropGuideOverlay(modifier: Modifier = Modifier) {
     val overlayColor = Color.Black.copy(alpha = 0.4f)
     val guideColor = Color.White.copy(alpha = 0.8f)
 
-    Canvas(modifier = modifier) {
+    Canvas(modifier = modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
         val canvasWidth = size.width
         val canvasHeight = size.height
 

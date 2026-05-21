@@ -1,11 +1,13 @@
 package com.plantdoctor.di
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.plantdoctor.data.remote.GeminiAnalyzer
 import com.plantdoctor.data.remote.OpenAiAnalyzer
 import com.plantdoctor.data.remote.PlantAnalyzer
+import com.plantdoctor.data.remote.model.PlantDiagnosis
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,46 +20,51 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AnalyzerModule {
 
-    private const val PREFS_FILE = "encrypted_prefs"
+    private const val PREFS_FILE = "plant_doctor_secure_prefs"
     private const val KEY_PROVIDER = "ai_provider"
-    private const val KEY_API_KEY = "api_key"
-    private const val PROVIDER_GEMINI = "gemini"
-    private const val PROVIDER_OPENAI = "openai"
+    private const val PROVIDER_GEMINI = "GEMINI"
+    private const val PROVIDER_OPENAI = "OPENAI"
 
     @Provides
     @Singleton
-    fun providePlantAnalyzer(
-        @ApplicationContext context: Context,
-        okHttpClient: OkHttpClient
-    ): PlantAnalyzer {
+    fun provideEncryptedPrefs(@ApplicationContext context: Context): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
-
-        val prefs = EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             context,
             PREFS_FILE,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
 
-        val provider = prefs.getString(KEY_PROVIDER, PROVIDER_GEMINI) ?: PROVIDER_GEMINI
-        val apiKey = prefs.getString(KEY_API_KEY, null)
+    @Provides
+    @Singleton
+    fun providePlantAnalyzer(
+        prefs: SharedPreferences,
+        okHttpClient: OkHttpClient
+    ): PlantAnalyzer {
+        // Dynamic proxy that reads the API key fresh each time,
+        // so saving a key in Settings works without restarting the app
+        return object : PlantAnalyzer {
+            override suspend fun analyze(imageBytes: ByteArray): PlantDiagnosis {
+                val provider = prefs.getString(KEY_PROVIDER, PROVIDER_GEMINI) ?: PROVIDER_GEMINI
+                val apiKey = prefs.getString("api_key_$provider", null)
 
-        if (apiKey.isNullOrBlank()) {
-            return object : PlantAnalyzer {
-                override suspend fun analyze(imageBytes: ByteArray): com.plantdoctor.data.remote.model.PlantDiagnosis {
+                if (apiKey.isNullOrBlank()) {
                     throw IllegalStateException(
-                        "No API key configured. Please go to Settings and enter your API key to analyze plants."
+                        "No API key configured. Please go to Settings and enter your API key."
                     )
                 }
-            }
-        }
 
-        return when (provider) {
-            PROVIDER_OPENAI -> OpenAiAnalyzer(apiKey, okHttpClient)
-            else -> GeminiAnalyzer(apiKey, okHttpClient)
+                val analyzer = when (provider) {
+                    PROVIDER_OPENAI -> OpenAiAnalyzer(apiKey, okHttpClient)
+                    else -> GeminiAnalyzer(apiKey, okHttpClient)
+                }
+                return analyzer.analyze(imageBytes)
+            }
         }
     }
 }
