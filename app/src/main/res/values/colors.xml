@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="forest_green">#2E7D32</color>
+    <color name="warm_earth">#795548</color>
+    <color name="cream">#FFF8E1</color>
+    <color name="white">#FFFFFF</color>
+    <color name="severity_mild">#4CAF50</color>
+    <color name="severity_moderate">#FF9800</color>
+    <color name="severity_severe">#F44336</color>
+</resources>
