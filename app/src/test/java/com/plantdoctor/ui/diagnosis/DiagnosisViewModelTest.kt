@@ -1,21 +1,27 @@
 package com.plantdoctor.ui.diagnosis
 
+import android.content.ContentResolver
 import android.content.Context
-import app.cash.turbine.test
-import com.plantdoctor.data.local.entity.DiagnosisEntity
+import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
+import com.plantdoctor.data.local.entity.PlantEntity
 import com.plantdoctor.data.remote.PlantAnalyzer
+import com.plantdoctor.data.remote.model.Confidence
+import com.plantdoctor.data.remote.model.PlantDiagnosis
+import com.plantdoctor.data.remote.model.Severity
+import com.plantdoctor.data.remote.model.Treatment
 import com.plantdoctor.data.repository.DiagnosisRepository
 import com.plantdoctor.data.repository.PlantRepository
-import com.plantdoctor.domain.model.DiagnosisResult
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
-import io.mockk.impl.annotations.MockK
-import io.mockk.junit4.MockKRule
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -23,26 +29,17 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
+import java.io.ByteArrayInputStream
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosisViewModelTest {
 
-    @get:Rule
-    val mockkRule = MockKRule(this)
-
-    @MockK
-    lateinit var plantAnalyzer: PlantAnalyzer
-
-    @MockK
-    lateinit var diagnosisRepository: DiagnosisRepository
-
-    @MockK
-    lateinit var plantRepository: PlantRepository
-
-    @MockK
-    lateinit var context: Context
+    private val plantAnalyzer: PlantAnalyzer = mockk()
+    private val diagnosisRepository: DiagnosisRepository = mockk(relaxed = true)
+    private val plantRepository: PlantRepository = mockk()
+    private val context: Context = mockk()
+    private val contentResolver: ContentResolver = mockk()
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -51,92 +48,69 @@ class DiagnosisViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = DiagnosisViewModel(plantAnalyzer, diagnosisRepository, plantRepository)
+
+        every { context.contentResolver } returns contentResolver
+        every { plantRepository.getAllPlants() } returns flowOf(emptyList<PlantEntity>())
+
+        mockkStatic(Uri::class)
+        every { Uri.parse(any()) } returns mockk()
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+        unmockkStatic(Uri::class)
+    }
+
+    private fun createViewModel(savedStateHandle: SavedStateHandle = SavedStateHandle()): DiagnosisViewModel {
+        return DiagnosisViewModel(plantAnalyzer, diagnosisRepository, plantRepository, context, savedStateHandle)
     }
 
     @Test
     fun `initial state is Idle`() = runTest {
-        viewModel.uiState.test {
-            val state = awaitItem()
-            assertTrue(state is DiagnosisUiState.Idle)
-        }
+        viewModel = createViewModel()
+        assertEquals(DiagnosisUiState.Idle, viewModel.uiState.value)
     }
 
     @Test
-    fun `analyzeImage sets Analyzing then Success on successful analysis`() = runTest {
+    fun `analyzeImage transitions to Success on successful analysis`() = runTest {
         val imageBytes = byteArrayOf(1, 2, 3)
-        val diagnosisResult = DiagnosisResult(
-            plantName = "Tomato",
-            diseaseName = "Early Blight",
-            severity = "moderate",
-            confidence = 0.85f,
-            description = "Fungal disease causing brown spots on leaves",
-            immediateActions = listOf("Remove affected leaves", "Apply fungicide"),
-            recommendedProducts = listOf("Copper fungicide spray"),
-            preventionTips = listOf("Rotate crops yearly", "Water at base of plant")
+        val diagnosis = PlantDiagnosis(
+            identification = "Tomato",
+            diagnosis = "Early Blight",
+            severity = Severity.MODERATE,
+            treatment = Treatment(
+                immediate = listOf("Remove affected leaves"),
+                products = listOf("Copper fungicide"),
+                prevention = listOf("Rotate crops yearly")
+            ),
+            confidence = Confidence.HIGH
         )
-        coEvery { plantAnalyzer.analyze(imageBytes, any()) } returns diagnosisResult
 
-        viewModel.uiState.test {
-            assertEquals(DiagnosisUiState.Idle, awaitItem())
+        every { contentResolver.openInputStream(any()) } returns ByteArrayInputStream(imageBytes)
+        coEvery { plantAnalyzer.analyze(any()) } returns diagnosis
 
-            viewModel.analyzeImage(imageBytes, context)
+        viewModel = createViewModel()
+        viewModel.analyzeImage("content://image/1")
+        advanceUntilIdle()
 
-            val analyzingState = awaitItem()
-            assertTrue(analyzingState is DiagnosisUiState.Analyzing)
-
-            val successState = awaitItem()
-            assertTrue(successState is DiagnosisUiState.Success)
-            assertEquals(diagnosisResult, (successState as DiagnosisUiState.Success).result)
-        }
+        val state = viewModel.uiState.value
+        assertTrue(state is DiagnosisUiState.Success)
+        assertEquals(diagnosis, (state as DiagnosisUiState.Success).diagnosis)
+        assertEquals("content://image/1", state.imageUri)
     }
 
     @Test
-    fun `analyzeImage sets Error on failure`() = runTest {
-        val imageBytes = byteArrayOf(1, 2, 3)
-        val errorMessage = "Network error occurred"
-        coEvery { plantAnalyzer.analyze(imageBytes, any()) } throws RuntimeException(errorMessage)
+    fun `analyzeImage transitions to Error on failure`() = runTest {
+        every { contentResolver.openInputStream(any()) } returns ByteArrayInputStream(byteArrayOf(1))
+        coEvery { plantAnalyzer.analyze(any()) } throws RuntimeException("Network error")
 
-        viewModel.uiState.test {
-            assertEquals(DiagnosisUiState.Idle, awaitItem())
+        viewModel = createViewModel()
+        viewModel.analyzeImage("content://image/1")
+        advanceUntilIdle()
 
-            viewModel.analyzeImage(imageBytes, context)
-
-            val analyzingState = awaitItem()
-            assertTrue(analyzingState is DiagnosisUiState.Analyzing)
-
-            val errorState = awaitItem()
-            assertTrue(errorState is DiagnosisUiState.Error)
-            assertEquals(errorMessage, (errorState as DiagnosisUiState.Error).message)
-        }
-    }
-
-    @Test
-    fun `saveDiagnosis calls repository insert`() = runTest {
-        val diagnosis = DiagnosisEntity(
-            id = "test-id",
-            plantId = null,
-            plantName = "Rose",
-            diseaseName = "Black Spot",
-            severity = "mild",
-            confidence = 0.9f,
-            description = "Fungal disease",
-            immediateActions = "Prune infected leaves",
-            recommendedProducts = "Neem oil",
-            preventionTips = "Good air circulation",
-            imageUri = "content://image/1",
-            createdAt = System.currentTimeMillis()
-        )
-        coEvery { diagnosisRepository.insertDiagnosis(diagnosis) } returns Unit
-
-        viewModel.saveDiagnosis(diagnosis)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        coVerify(exactly = 1) { diagnosisRepository.insertDiagnosis(diagnosis) }
+        val state = viewModel.uiState.value
+        assertTrue(state is DiagnosisUiState.Error)
+        assertEquals("Network error", (state as DiagnosisUiState.Error).message)
     }
 }

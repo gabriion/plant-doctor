@@ -33,32 +33,20 @@ class DiagnosisRepositoryTest {
     fun `getAllDiagnoses returns flow of diagnoses from dao`() = runTest {
         val diagnoses = listOf(
             DiagnosisEntity(
-                id = "1",
-                plantId = null,
-                plantName = "Tomato",
-                diseaseName = "Early Blight",
-                severity = "moderate",
-                confidence = 0.85f,
-                description = "Fungal disease causing brown spots",
-                immediateActions = "Remove affected leaves, apply fungicide",
-                recommendedProducts = "Copper fungicide spray",
-                preventionTips = "Rotate crops yearly, water at base",
-                imageUri = "content://image/1",
-                createdAt = System.currentTimeMillis()
+                id = 1, plantId = null, imageUri = "content://image/1",
+                identification = "Tomato", diagnosis = "Early Blight",
+                severity = "MODERATE", confidence = "HIGH",
+                immediateActions = "[\"Remove affected leaves\"]",
+                products = "[\"Copper fungicide\"]",
+                prevention = "[\"Rotate crops yearly\"]"
             ),
             DiagnosisEntity(
-                id = "2",
-                plantId = null,
-                plantName = "Rose",
-                diseaseName = "Black Spot",
-                severity = "mild",
-                confidence = 0.92f,
-                description = "Fungal disease with black circular spots",
-                immediateActions = "Prune infected leaves",
-                recommendedProducts = "Neem oil",
-                preventionTips = "Ensure good air circulation",
-                imageUri = "content://image/2",
-                createdAt = System.currentTimeMillis()
+                id = 2, plantId = null, imageUri = "content://image/2",
+                identification = "Rose", diagnosis = "Black Spot",
+                severity = "MILD", confidence = "HIGH",
+                immediateActions = "[\"Prune infected leaves\"]",
+                products = "[\"Neem oil\"]",
+                prevention = "[\"Good air circulation\"]"
             )
         )
         coEvery { diagnosisDao.getAllDiagnoses() } returns flowOf(diagnoses)
@@ -66,26 +54,20 @@ class DiagnosisRepositoryTest {
         val result = repository.getAllDiagnoses().first()
 
         assertEquals(2, result.size)
-        assertEquals("Early Blight", result[0].diseaseName)
-        assertEquals("Black Spot", result[1].diseaseName)
+        assertEquals("Early Blight", result[0].diagnosis)
+        assertEquals("Black Spot", result[1].diagnosis)
     }
 
     @Test
     fun `getRecentDiagnoses returns limited diagnoses from dao`() = runTest {
         val diagnoses = listOf(
             DiagnosisEntity(
-                id = "1",
-                plantId = null,
-                plantName = "Basil",
-                diseaseName = "Downy Mildew",
-                severity = "severe",
-                confidence = 0.78f,
-                description = "Yellowing leaves with fuzzy gray growth",
-                immediateActions = "Remove and destroy affected plants",
-                recommendedProducts = "Phosphorous acid fungicide",
-                preventionTips = "Avoid overhead watering, space plants",
-                imageUri = "content://image/3",
-                createdAt = System.currentTimeMillis()
+                id = 1, plantId = null, imageUri = "content://image/3",
+                identification = "Basil", diagnosis = "Downy Mildew",
+                severity = "SEVERE", confidence = "MEDIUM",
+                immediateActions = "[\"Remove affected plants\"]",
+                products = "[\"Phosphorous acid fungicide\"]",
+                prevention = "[\"Avoid overhead watering\"]"
             )
         )
         coEvery { diagnosisDao.getRecentDiagnoses(5) } returns flowOf(diagnoses)
@@ -93,27 +75,21 @@ class DiagnosisRepositoryTest {
         val result = repository.getRecentDiagnoses(5).first()
 
         assertEquals(1, result.size)
-        assertEquals("Downy Mildew", result[0].diseaseName)
-        assertEquals("severe", result[0].severity)
+        assertEquals("Downy Mildew", result[0].diagnosis)
+        assertEquals("SEVERE", result[0].severity)
     }
 
     @Test
     fun `insertDiagnosis calls dao insert`() = runTest {
         val diagnosis = DiagnosisEntity(
-            id = "1",
-            plantId = "plant-1",
-            plantName = "Orchid",
-            diseaseName = "Root Rot",
-            severity = "severe",
-            confidence = 0.88f,
-            description = "Roots are mushy and brown",
-            immediateActions = "Repot in fresh medium, trim dead roots",
-            recommendedProducts = "Hydrogen peroxide 3% solution",
-            preventionTips = "Allow medium to dry between waterings",
-            imageUri = "content://image/4",
-            createdAt = System.currentTimeMillis()
+            id = 1, plantId = 10L, imageUri = "content://image/4",
+            identification = "Orchid", diagnosis = "Root Rot",
+            severity = "SEVERE", confidence = "HIGH",
+            immediateActions = "[\"Repot in fresh medium\"]",
+            products = "[\"Hydrogen peroxide 3%\"]",
+            prevention = "[\"Allow medium to dry between waterings\"]"
         )
-        coEvery { diagnosisDao.insertDiagnosis(diagnosis) } returns Unit
+        coEvery { diagnosisDao.insertDiagnosis(diagnosis) } returns 1L
 
         repository.insertDiagnosis(diagnosis)
 

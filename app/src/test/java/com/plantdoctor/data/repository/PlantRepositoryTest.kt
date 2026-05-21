@@ -33,24 +33,8 @@ class PlantRepositoryTest {
     @Test
     fun `getAllPlants returns flow of plants from dao`() = runTest {
         val plants = listOf(
-            PlantEntity(
-                id = "1",
-                name = "Monstera",
-                species = "Monstera deliciosa",
-                location = "Living Room",
-                notes = "Needs indirect light",
-                photoUri = null,
-                createdAt = System.currentTimeMillis()
-            ),
-            PlantEntity(
-                id = "2",
-                name = "Snake Plant",
-                species = "Sansevieria trifasciata",
-                location = "Bedroom",
-                notes = "Very low maintenance",
-                photoUri = null,
-                createdAt = System.currentTimeMillis()
-            )
+            PlantEntity(id = 1, name = "Monstera", species = "Monstera deliciosa", location = "Living Room", notes = "Needs indirect light"),
+            PlantEntity(id = 2, name = "Snake Plant", species = "Sansevieria trifasciata", location = "Bedroom", notes = "Very low maintenance")
         )
         coEvery { plantDao.getAllPlants() } returns flowOf(plants)
 
@@ -63,16 +47,8 @@ class PlantRepositoryTest {
 
     @Test
     fun `insertPlant calls dao insert`() = runTest {
-        val plant = PlantEntity(
-            id = "1",
-            name = "Fern",
-            species = "Nephrolepis exaltata",
-            location = "Bathroom",
-            notes = "Loves humidity",
-            photoUri = null,
-            createdAt = System.currentTimeMillis()
-        )
-        coEvery { plantDao.insertPlant(plant) } returns Unit
+        val plant = PlantEntity(name = "Fern", species = "Nephrolepis exaltata", location = "Bathroom", notes = "Loves humidity")
+        coEvery { plantDao.insertPlant(plant) } returns 1L
 
         repository.insertPlant(plant)
 
@@ -81,35 +57,19 @@ class PlantRepositoryTest {
 
     @Test
     fun `getPlantById returns plant from dao`() = runTest {
-        val plant = PlantEntity(
-            id = "1",
-            name = "Pothos",
-            species = "Epipremnum aureum",
-            location = "Kitchen",
-            notes = "Trailing vine",
-            photoUri = null,
-            createdAt = System.currentTimeMillis()
-        )
-        coEvery { plantDao.getPlantById("1") } returns plant
+        val plant = PlantEntity(id = 1, name = "Pothos", species = "Epipremnum aureum", location = "Kitchen", notes = "Trailing vine")
+        coEvery { plantDao.getPlantById(1L) } returns plant
 
-        val result = repository.getPlantById("1")
+        val result = repository.getPlantById(1L)
 
         assertNotNull(result)
         assertEquals("Pothos", result?.name)
-        assertEquals("1", result?.id)
+        assertEquals(1L, result?.id)
     }
 
     @Test
     fun `deletePlant calls dao delete`() = runTest {
-        val plant = PlantEntity(
-            id = "1",
-            name = "Cactus",
-            species = "Cactaceae",
-            location = "Window",
-            notes = "Minimal water",
-            photoUri = null,
-            createdAt = System.currentTimeMillis()
-        )
+        val plant = PlantEntity(id = 1, name = "Cactus", species = "Cactaceae", location = "Window", notes = "Minimal water")
         coEvery { plantDao.deletePlant(plant) } returns Unit
 
         repository.deletePlant(plant)
